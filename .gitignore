@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Private data
+data/raw/
+data/processed/
+*.fit
+*.tcx
+*.gpx
+*.db
+*.sqlite
+
+# Cache
+.DS_Store
