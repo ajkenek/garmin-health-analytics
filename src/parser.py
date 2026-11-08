@@ -8,6 +8,7 @@ from garmin_personal_api import (
     resolve_api_key,
 )
 from typing import Callable, Any
+from dotenv import load_dotenv
 
 START_DATE = date(2024, 4, 3)
 END_DATE = date.today()
@@ -56,3 +57,22 @@ def save_to_json(
         json.dump(data, f, ensure_ascii=False, indent=4)
 
     print(f"Saving data to: {filepath}")
+
+if __name__ == "__main__":
+    load_dotenv()
+
+    RAW_DIR =  Path(__file__).resolve().parents[1] / 'data' / 'raw'
+    print(f'Path to save data: {RAW_DIR}')
+
+    api_key = resolve_api_key()
+
+    with PersonalApiAuthenticator() as auth:
+        token = auth.obtain_token(api_key)
+    print(f'Authorization done')
+
+    ranges = generate_date_ranges(START_DATE, END_DATE, CHUNK_SIZE)
+    ranges = ranges[:2]
+
+    with GarminPersonalApiClient(token.access_token) as client:
+        daily_data = fetch_chunked_endpoint(client.get_daily_summaries, ranges, desc="Daily summaries")
+        save_to_json(daily_data, RAW_DIR / 'daily.json')
