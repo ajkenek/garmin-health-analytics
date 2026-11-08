@@ -45,5 +45,14 @@ def fetch_chunked_endpoint(
 
     return all_data
 
+def save_to_json(
+        data: Any,
+        filepath: Path,
+):
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
 
+    with open(filepath, mode='w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
+    print(f"Saving data to: {filepath}")
