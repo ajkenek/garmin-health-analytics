@@ -29,12 +29,27 @@ def generate_date_ranges(start_date: date, end_date: date, chunk_size: int):
 def fetch_chunked_endpoint(
     fetch_fn: Callable[[str, str], Any],
     date_ranges: list[list[str]],
+    filepath: Path | str | None = None,
     desc: str = "Downloading data"
 ) -> list[dict]:
 
-    all_data = []
+    if filepath and Path(filepath).exists():
+        with open(filepath, 'r', encoding='utf-8') as f:
+            all_data = json.load(f)
+    else:
+        all_data = []
+
+    existing_dates = {item.get('calendarDate') for item in all_data if item.get('calendarDate')}
+    # --- DEBUG ---
+    print(f"\n[{desc}] Wczytano z pliku rekordów: {len(all_data)}")
+    print(f"[{desc}] Unikalnych dat w zbiorze: {len(existing_dates)}")
+    if existing_dates:
+        print(f"[{desc}] Próbka dat: {sorted(list(existing_dates))[:3]} ... {sorted(list(existing_dates))[-3:]}")
 
     for start_str, end_str in tqdm(date_ranges, desc=desc):
+        if start_str in existing_dates or end_str in existing_dates:
+            continue
+
         response = None
         for attempt in range(3):
             try:
@@ -58,12 +73,23 @@ def fetch_chunked_endpoint(
                     break
 
         if response:
-                if isinstance(response, list):
-                    all_data.extend(response)
-                else:
-                    all_data.append(response)
+            if isinstance(response, list):
+                items = response
+            elif isinstance(response, dict):
+                items = response.get('data') or response.get('hrvSummaries') or [response]
+            else:
+                items = [response]
+            for item in items:
+                c_date = item.get('calendarDate')
+                if c_date and c_date not in existing_dates:
+                    all_data.append(item)
+                    existing_dates.add(c_date)
+                elif not c_date:
+                    all_data.append(item)
 
         time.sleep(0.3)
+
+    all_data.sort(key=lambda x: x.get("calendarDate", ""))
     return all_data
 
 def save_to_json(
@@ -93,11 +119,26 @@ if __name__ == "__main__":
     ranges = generate_date_ranges(START_DATE, END_DATE, CHUNK_SIZE)
 
     with GarminPersonalApiClient(token.access_token) as client:
-        daily_data = fetch_chunked_endpoint(client.get_daily_summaries, ranges, desc="Daily summaries")
+        daily_data = fetch_chunked_endpoint(
+            fetch_fn=client.get_daily_summaries,
+            date_ranges=ranges,
+            filepath=RAW_DIR / 'daily.json',
+            desc="Daily summaries"
+        )
         save_to_json(daily_data, RAW_DIR / 'daily.json')
 
-        daily_hrv = fetch_chunked_endpoint(client.get_daily_hrv_summaries, ranges, desc="Daily HRV")
+        daily_hrv = fetch_chunked_endpoint(
+            fetch_fn=client.get_daily_hrv_summaries,
+            date_ranges=ranges,
+            filepath=RAW_DIR / 'daily_hrv.json',
+            desc="Daily HRV"
+        )
         save_to_json(daily_hrv, RAW_DIR / 'daily_hrv.json')
 
-        daily_sleep = fetch_chunked_endpoint(client.get_daily_sleep_summaries, ranges, desc="Daily sleep")
+        daily_sleep = fetch_chunked_endpoint(
+            fetch_fn=client.get_daily_sleep_summaries,
+            date_ranges=ranges,
+            filepath=RAW_DIR / 'daily_sleep.json',
+            desc="Daily sleep"
+        )
         save_to_json(daily_sleep, RAW_DIR / 'daily_sleep.json')
