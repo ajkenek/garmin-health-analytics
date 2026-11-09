@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import date, timedelta
 from pathlib import Path
 from tqdm import tqdm
@@ -37,13 +38,15 @@ def fetch_chunked_endpoint(
             response = fetch_fn(start_str, end_str)
         except Exception as e:
             tqdm.write(f"ERROR FOR: {start_str} - {end_str}: {e}")
+            if '429' in str(e):
+                time.sleep(30)
             continue
         if response:
                 if isinstance(response, list):
                     all_data.extend(response)
                 else:
                     all_data.append(response)
-
+        time.sleep(0.3)
     return all_data
 
 def save_to_json(
