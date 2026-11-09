@@ -34,18 +34,26 @@ def fetch_chunked_endpoint(
     all_data = []
 
     for start_str, end_str in tqdm(date_ranges, desc=desc):
-        try:
-            response = fetch_fn(start_str, end_str)
-        except Exception as e:
-            tqdm.write(f"ERROR FOR: {start_str} - {end_str}: {e}")
-            if '429' in str(e):
-                time.sleep(30)
-            continue
+        response = None
+        for attempt in range(3):
+            try:
+                response = fetch_fn(start_str, end_str)
+                break
+            except Exception as e:
+                if '429' in str(e):
+                    tqdm.write(f"API limit exceeded for {start_str} - {end_str}."
+                               f"\nTrying again in a few seconds... (Attempt {attempt+1}/3)")
+                    time.sleep(30)
+                else:
+                    tqdm.write(f"Unexpected error for {start_str} - {end_str}: {e}")
+                    break
+
         if response:
                 if isinstance(response, list):
                     all_data.extend(response)
                 else:
                     all_data.append(response)
+
         time.sleep(0.3)
     return all_data
 
