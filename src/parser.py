@@ -71,8 +71,13 @@ if __name__ == "__main__":
     print(f'Authorization done')
 
     ranges = generate_date_ranges(START_DATE, END_DATE, CHUNK_SIZE)
-    ranges = ranges[:2]
 
     with GarminPersonalApiClient(token.access_token) as client:
         daily_data = fetch_chunked_endpoint(client.get_daily_summaries, ranges, desc="Daily summaries")
         save_to_json(daily_data, RAW_DIR / 'daily.json')
+
+        daily_hrv = fetch_chunked_endpoint(client.get_daily_hrv_summaries, ranges, desc="Daily HRV")
+        save_to_json(daily_hrv, RAW_DIR / 'daily_hrv.json')
+
+        daily_sleep = fetch_chunked_endpoint(client.get_daily_sleep_summaries, ranges, desc="Daily sleep")
+        save_to_json(daily_sleep, RAW_DIR / 'daily_sleep.json')
