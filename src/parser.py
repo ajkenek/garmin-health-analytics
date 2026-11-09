@@ -10,6 +10,7 @@ from garmin_personal_api import (
 )
 from typing import Callable, Any
 from dotenv import load_dotenv
+import re
 
 START_DATE = date(2024, 4, 3)
 END_DATE = date.today()
@@ -41,9 +42,17 @@ def fetch_chunked_endpoint(
                 break
             except Exception as e:
                 if '429' in str(e):
-                    tqdm.write(f"API limit exceeded for {start_str} - {end_str}."
-                               f"\nTrying again in a few seconds... (Attempt {attempt+1}/3)")
+                    tqdm.write(
+                        f"API limit exceeded for {start_str} - {end_str}."
+                        f"\nTrying again in a few seconds... (Attempt {attempt+1}/3)"
+                    )
                     time.sleep(30)
+                elif re.search(r'\b5\d{2}\b', str(e)):
+                    tqdm.write(
+                        f"Server error for {start_str} - {end_str}."
+                        f"\nTrying again in a few seconds..."
+                    )
+                    time.sleep(5)
                 else:
                     tqdm.write(f"Unexpected error for {start_str} - {end_str}: {e}")
                     break
