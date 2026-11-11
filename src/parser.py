@@ -40,11 +40,6 @@ def fetch_chunked_endpoint(
         all_data = []
 
     existing_dates = {item.get('calendarDate') for item in all_data if item.get('calendarDate')}
-    # --- DEBUG ---
-    print(f"\n[{desc}] Wczytano z pliku rekordów: {len(all_data)}")
-    print(f"[{desc}] Unikalnych dat w zbiorze: {len(existing_dates)}")
-    if existing_dates:
-        print(f"[{desc}] Próbka dat: {sorted(list(existing_dates))[:3]} ... {sorted(list(existing_dates))[-3:]}")
 
     for start_str, end_str in tqdm(date_ranges, desc=desc):
         if start_str in existing_dates or end_str in existing_dates:
