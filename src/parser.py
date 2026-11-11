@@ -16,7 +16,11 @@ START_DATE = date(2024, 4, 3)
 END_DATE = date.today()
 CHUNK_SIZE = 28
 
-def generate_date_ranges(start_date: date, end_date: date, chunk_size: int):
+def generate_date_ranges(
+        start_date: date,
+        end_date: date,
+        chunk_size: int
+) -> list[list[str]]:
     ranges = []
     current_start = start_date
     while current_start <= end_date:
@@ -92,8 +96,9 @@ def fetch_activities(
         client: GarminPersonalApiClient,
         start_date: date,
         filepath: Path | str | None = None,
-        limit: int = 100
-):
+        limit: int = 100,
+        desc: str = "Downloading activities"
+) -> list[dict]:
     all_activities = []
     if filepath and Path(filepath).exists():
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -102,29 +107,35 @@ def fetch_activities(
 
     start = 0
     stop_fetching = False
-    while not stop_fetching:
-        batch = client.search_activities(
-            start=start,
-            limit=limit,
-        )
-        start += len(batch)
 
-        if not batch:
-            break
+    with tqdm(desc=desc, unit=" act") as pbar:
+        while not stop_fetching:
+            batch = client.search_activities(
+                start=start,
+                limit=limit,
+            )
+            start += len(batch)
+            new_added = 0
 
-        for a in batch:
-            act_date =a.get('startTimeLocal', '')[:10]
-            act_id = a.get('activityId')
-
-            if (act_date or act_date < start_date.isoformat()) or act_id in existing_ids:
-                stop_fetching = True
+            if not batch:
                 break
 
-            all_activities.append(a)
-            existing_ids.add(act_id)
-        time.sleep(0.3)
+            for a in batch:
+                act_date =a.get('startTimeLocal', '')[:10]
+                act_id = a.get('activityId')
 
-    all_activities.sort(key=lambda x: x.get("activityId", ""))
+                if (act_date or act_date < start_date.isoformat()) and act_id in existing_ids:
+                    stop_fetching = True
+                    break
+
+                all_activities.append(a)
+                existing_ids.add(act_id)
+                new_added += 1
+
+            pbar.update(new_added)
+            time.sleep(0.3)
+
+    all_activities.sort(key=lambda x: x.get("startTimeLocal", ""))
     return all_activities
 
 def save_to_json(
@@ -182,5 +193,6 @@ if __name__ == "__main__":
             client=client,
             start_date=START_DATE,
             filepath=RAW_DIR / 'activities.json',
+            desc="Activities"
         )
         save_to_json(activities_data, RAW_DIR / 'activities.json')
