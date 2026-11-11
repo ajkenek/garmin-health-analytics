@@ -74,6 +74,7 @@ def fetch_chunked_endpoint(
                 items = response.get('data') or response.get('hrvSummaries') or [response]
             else:
                 items = [response]
+
             for item in items:
                 c_date = item.get('calendarDate')
                 if c_date and c_date not in existing_dates:
@@ -86,6 +87,45 @@ def fetch_chunked_endpoint(
 
     all_data.sort(key=lambda x: x.get("calendarDate", ""))
     return all_data
+
+def fetch_activities(
+        client: GarminPersonalApiClient,
+        start_date: date,
+        filepath: Path | str | None = None,
+        limit: int = 100
+):
+    all_activities = []
+    if filepath and Path(filepath).exists():
+        with open(filepath, 'r', encoding='utf-8') as f:
+            all_activities = json.load(f)
+    existing_ids = {a.get('activityId') for a in all_activities if a.get('activityId')}
+
+    start = 0
+    stop_fetching = False
+    while not stop_fetching:
+        batch = client.search_activities(
+            start=start,
+            limit=limit,
+        )
+        start += len(batch)
+
+        if not batch:
+            break
+
+        for a in batch:
+            act_date =a.get('startTimeLocal', '')[:10]
+            act_id = a.get('activityId')
+
+            if (act_date or act_date < start_date.isoformat()) or act_id in existing_ids:
+                stop_fetching = True
+                break
+
+            all_activities.append(a)
+            existing_ids.add(act_id)
+        time.sleep(0.3)
+
+    all_activities.sort(key=lambda x: x.get("activityId", ""))
+    return all_activities
 
 def save_to_json(
         data: Any,
@@ -137,3 +177,10 @@ if __name__ == "__main__":
             desc="Daily sleep"
         )
         save_to_json(daily_sleep, RAW_DIR / 'daily_sleep.json')
+
+        activities_data = fetch_activities(
+            client=client,
+            start_date=START_DATE,
+            filepath=RAW_DIR / 'activities.json',
+        )
+        save_to_json(activities_data, RAW_DIR / 'activities.json')
